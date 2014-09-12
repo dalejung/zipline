@@ -117,11 +117,13 @@ class PerformancePeriod(object):
         self._position_last_sale_prices = pd.Series()
 
         self.calculate_performance()
+        self.calculate_account_metrics()
 
         # An object to recycle via assigning new values
         # when returning portfolio information.
         # So as not to avoid creating a new object for each event
         self._portfolio_store = zp.Portfolio()
+        self._account_store = zp.Account()
         self._positions_store = zp.Positions()
         self.serialize_positions = serialize_positions
 
@@ -263,6 +265,25 @@ class PerformancePeriod(object):
             self.returns = self.pnl / total_at_start
         else:
             self.returns = 0.0
+
+    def calculate_account_metrics(self):
+        self.settled_cash = self.ending_cash
+        self.accrued_interest = 0.0
+        self.buying_power = float('inf')
+        self.equity_with_loan = self.ending_cash + self.ending_value
+        self.total_positions_value = self.ending_value
+        self.regt_equity = self.ending_cash
+        self.regt_margin = float('inf')
+        self.initial_margin_requirement = 0.0
+        self.maintenance_margin_requirement = 0.0
+        self.available_funds = self.ending_cash
+        self.excess_liquidity = self.ending_cash
+        self.cushion = \
+            self.ending_cash / (self.ending_cash + self.ending_value)
+        self.day_trades_remaining = float('inf')
+        self.leverage = \
+            self.ending_value / (self.ending_value + self.ending_cash)
+        self.net_liquidation = self.ending_cash + self.ending_value
 
     def record_order(self, order):
         if self.keep_orders:
@@ -406,6 +427,27 @@ class PerformancePeriod(object):
         portfolio.positions = self.get_positions()
         portfolio.positions_value = self.ending_value
         return portfolio
+
+    def as_account(self):
+        account = self._account_store
+
+        account.settled_cash = self.settled_cash
+        account.accrued_interest = self.accrued_interest
+        account.buying_power = self.buying_power
+        account.equity_with_loan = self.equity_with_loan
+        account.total_positions_value = self.total_positions_value
+        account.regt_equity = self.regt_equity
+        account.regt_margin = self.regt_margin
+        account.initial_margin_requirement = self.initial_margin_requirement
+        account.maintenance_margin_requirement = \
+            self.maintenance_margin_requirement
+        account.available_funds = self.available_funds
+        account.excess_liquidity = self.excess_liquidity
+        account.cushion = self.cushion
+        account.day_trades_remaining = self.day_trades_remaining
+        account.leverage = self.leverage
+        account.net_liquidation = self.net_liquidation
+        return account
 
     def get_positions(self):
 

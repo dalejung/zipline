@@ -233,6 +233,10 @@ class PerformanceTracker(object):
         self.update_performance()
         return self.cumulative_performance.as_portfolio()
 
+    def get_account(self):
+        self.update_performance()
+        return self.cumulative_performance.as_account()
+
     def to_dict(self, emission_type=None):
         """
         Creates a dictionary representing the state of this tracker.

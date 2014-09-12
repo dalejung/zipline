@@ -168,7 +168,9 @@ class TradingAlgorithm(object):
             self.blotter = Blotter()
 
         self.portfolio_needs_update = True
+        self.account_needs_update = True
         self._portfolio = None
+        self._account = None
 
         self.history_container = None
         self.history_specs = {}
@@ -333,6 +335,7 @@ class TradingAlgorithm(object):
         # Instantiate perf_tracker
         self.perf_tracker = PerformanceTracker(sim_params)
         self.portfolio_needs_update = True
+        self.account_needs_update = True
 
         self.data_gen = self._create_data_generator(source_filter, sim_params)
 
@@ -653,6 +656,16 @@ class TradingAlgorithm(object):
             self._portfolio = self.perf_tracker.get_portfolio()
             self.portfolio_needs_update = False
         return self._portfolio
+
+    @property
+    def account(self):
+        return self.updated_account()
+
+    def updated_account(self):
+        if self.account_needs_update:
+            self._account = self.perf_tracker.get_account()
+            self.account_needs_update = False
+        return self._account
 
     def set_logger(self, logger):
         self.logger = logger
