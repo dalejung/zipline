@@ -1,3 +1,18 @@
+#
+# Copyright 2014 Quantopian, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 from functools import partial
@@ -9,7 +24,7 @@ import pandas as pd
 import pytz
 
 from zipline.finance.trading import TradingEnvironment
-from zipline.utils.callable_check import callable_check, Argument
+from zipline.utils.argcheck import verify_callable_argspec, Argument
 
 
 ENV = TradingEnvironment.instance()
@@ -113,13 +128,16 @@ class Event(namedtuple('Event', ['rule', 'callback'])):
         callback = callback or (lambda *args, **kwargs: None)
 
         # Check the callback provided.
-        callable_check(
+        verify_callable_argspec(
             callback,
             [Argument('context'), Argument('data')]
         )
         # Make sure that the rule's should_trigger is valid. This will catch
         # potential errors much more quickly and give a more helpful error.
-        callable_check(getattr(rule, 'should_trigger'), [Argument('dt')])
+        verify_callable_argspec(
+            getattr(rule, 'should_trigger'),
+            [Argument('dt')]
+        )
 
         return super(cls, cls).__new__(cls, rule=rule, callback=callback)
 
@@ -399,16 +417,92 @@ def BetweenTimes(time1=None, time2=None, tz='UTC'):
             | AfterTime(time1, tz=tz)) & BeforeTime(time2, tz=tz)
 
 
-class FirstTradingDayOfMonth(StatelessRule):
+class HalfDay(StatelessRule):
     """
-    A rule that triggers on the first trading day of every month.
+    A rule that only triggers on half days.
     """
-    def __init__(self):
+    def should_trigger(self, dt):
+        return dt.date in ENV.early_closes
+
+
+class NotHalfDay(StatelessRule):
+    """
+    A rule that only triggers when it is not a half day.
+    """
+    def should_trigger(self, dt):
+        return dt.date not in ENV.early_closes
+
+
+class NthTradingDayOfWeek(StatelessRule):
+    """
+    A rule that triggers on the nth trading day of the week.
+    This is zero-indexed, n=0 is the first trading day of the week.
+    """
+    def __init__(self, n=0):
+        self.td_delta = n
+
+    def should_trigger(self, dt):
+        return ENV.plus_n_trading_days(
+            self.td_delta,
+            self.get_first_trading_day_of_week(dt)
+        ).date == dt.date
+
+    def get_first_trading_day_of_week(self, dt):
+        prev = dt
+        dt = ENV.get_previous_trading_day(dt)
+        while dt.day < prev.day:
+            prev = dt
+            dt = ENV.get_previous_trading_day(dt),
+        return prev.date
+
+
+FirstTradingDayOfWeek = partial(NthTradingDayOfWeek, n=1)
+
+
+class NDaysBeforeLastTradingDayOfWeek(StatelessRule):
+    """
+    A rule that triggers n days before the last trading day of the week.
+    """
+    def __init__(self, n):
+        self.td_delta = -n
+
+    def should_trigger(self, dt):
+        return ENV.plus_n_trading_days(
+            self.td_delta,
+            self.get_last_trading_day_of_week(dt),
+        ).date == dt.date
+
+    def get_last_trading_day_of_week(self, dt):
+        prev = dt
+        dt = ENV.get_next_trading_day(dt)
+        while dt.day > prev.day:
+            prev = dt
+            dt = ENV.get_next_trading_day(dt)
+        return prev.date
+
+class LastTradingDayOfWeek(StatelessRule):
+    """
+    A rule that triggers on the last trading day of every week.
+    """
+    def should_trigger(self, dt):
+        return self.get_last_trading_day_of_week(dt) == dt.date
+
+
+class NthTradingDayOfMonth(StatelessRule):
+    """
+    A rule that triggers on the nth trading day of the month.
+    This is zero-indexed, n=0 is the first trading day of the month.
+    """
+    def __init__(self, n=0):
+        self.td_delta = n
         self.month = None
         self.first_day = None
 
     def should_trigger(self, dt):
-        return self.get_first_trading_day_of_month(dt) == dt.date()
+        return ENV.plus_n_trading_days(
+            self.td_delta,
+            self.get_first_trading_day_of_month(dt),
+        ).date == dt.date
 
     def get_first_trading_day_of_month(self, dt):
         """
@@ -427,17 +521,23 @@ class FirstTradingDayOfMonth(StatelessRule):
                           else ENV.next_trading_day(dt)).date()
         return self.first_day
 
+FirstTradingDayOfMonth = partial(NthTradingDayOfMonth, n=0)
 
-class LastTradingDayOfMonth(StatelessRule):
+
+class NDaysBeforeLastTradingDayOfMonth(StatelessRule):
     """
-    A rule that triggers on the last trading day of every month.
+    A rule that triggers n days before the last trading day of the month.
     """
-    def __init__(self):
+    def __init__(self, n=0):
+        self.td_delta = -n
         self.month = None
         self.last_day = None
 
     def should_trigger(self, dt):
-        return self.get_last_trading_day_of_month(dt) == dt.date()
+        return ENV.plus_n_trading_days(
+            self.td_delta,
+            self.get_last_trading_day_of_month(dt),
+        ).date == dt.date
 
     def get_last_trading_day_of_month(self, dt):
         """
@@ -455,6 +555,9 @@ class LastTradingDayOfMonth(StatelessRule):
             dt.replace(month=(dt.month % 12) + 1, day=1)
         ).date()
         return self.last_day
+
+
+LastTradingDayOfMonth = partial(NDaysBeforeLastTradingDayOfMonth, n=0)
 
 
 # Stateful rules
@@ -488,7 +591,7 @@ class RuleFromCallable(StatefulRule):
         single paramater, then a ValueError will be raised.
         """
         # Check that callback meets the criteria for a rule's should_trigger.
-        callable_check(callback, [Argument('dt')])
+        verify_callable_argspec(callback, [Argument('dt')])
 
         self.callback = callback
 
@@ -590,3 +693,42 @@ OncePerDay = partial(NTimesPerPeriod, n=1, freq='B')
 OncePerWeek = partial(NTimesPerPeriod, n=1, freq='W')
 OncePerMonth = partial(NTimesPerPeriod, n=1, freq='M')
 OncePerQuarter = partial(NTimesPerPeriod, n=1, freq='Q')
+
+
+# Factory API
+
+class DateRuleFactory(object):
+    day = Always
+
+    @staticmethod
+    def month_start(offset=0):
+        return NthTradingDayOfMonth(n=offset)
+
+    @staticmethod
+    def month_end(offset=0):
+        return NDaysBeforeLastTradingDayOfMonth(n=offset)
+
+    @staticmethod
+    def week_start(offset=0):
+        return NthTradingDayOfWeek(n=offset)
+
+    @staticmethod
+    def week_end(offset=0):
+        return NDaysBeforeLastTradingDayOfWeek(n=offset)
+
+
+class TimeRuleFactory(object):
+    market_open = AfterOpen
+    market_close = BeforeClose
+
+
+def make_eventrule(date_rule, time_rule, half_days=True):
+    """
+    Constructs an event rule from the factory api.
+    """
+    if half_days:
+        inner_rule = date_rule & time_rule
+    else:
+        inner_rule = date_rule & time_rule & NotHalfDay()
+
+    return OncePerDay(rule=inner_rule)

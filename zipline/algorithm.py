@@ -66,7 +66,12 @@ from zipline.sources import DataFrameSource, DataPanelSource
 from zipline.transforms.utils import StatefulTransform
 from zipline.utils.api_support import ZiplineAPI, api_method
 from zipline.utils import events as events_module
-from zipline.utils.events import EventManager
+from zipline.utils.events import (
+    EventManager,
+    make_eventrule,
+    DateRuleFactory,
+    TimeRuleFactory,
+)
 from zipline.utils.factory import create_simulation_parameters
 
 import zipline.protocol
@@ -509,6 +514,25 @@ class TradingAlgorithm(object):
         Adds an event to the algorithm's EventManager.
         """
         self.event_manager.add_event(events_module.Event(rule, callback))
+
+    @api_method
+    def schedule_function(self,
+                          func,
+                          date_rule=None,
+                          time_rule=None,
+                          half_days=True):
+        """
+        Schedules a function to be called with some timed rules.
+        """
+        # Defaults to every day 30 minutes before close.
+        date_rule = date_rule or self.date_rule_factory.day
+        time_rule = time_rule \
+            or self.time_rule_factory.market_close(minutes=30)
+
+        self.add_event(
+            make_eventrule(date_rule, time_rule, half_days),
+            func,
+        )
 
     @api_method
     def record(self, *args, **kwargs):
