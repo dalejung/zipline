@@ -17,6 +17,8 @@
 """
 Tools to generate data sources.
 """
+import itertools
+
 import pandas as pd
 
 from zipline.gens.utils import hash_args
@@ -83,6 +85,7 @@ class DataFrameSource(DataSource):
             self._raw_data = self.raw_data_gen()
         return self._raw_data
 
+
 class SourceEvent(object):
     # using slots to keep user variables separate
     __slots__ = ['_values', '_index', '_mapping', '_userdict']
@@ -123,12 +126,14 @@ class SourceEvent(object):
 
         # don't allow panel source attrs to change
         if hasattr(self, '_index') and name in self._index:
-            raise Exception("{name}: Cannot change a source attr".format(name=name))
+            raise Exception("{name}: Cannot change a source attr"
+                            .format(name=name))
         self._userdict[name] = value
 
     def __delattr__(self, name):
         if name in self._index:
-            raise Exception("{name}: Cannot delete a source attr".format(name=name))
+            raise Exception("{name}: Cannot delete a source attr"
+                            .format(name=name))
         del self._userdict[name]
 
     def __contains__(self, name):
@@ -147,7 +152,7 @@ class SourceEvent(object):
     def __dict__(self):
         # this replicate the old Event __dict__
         # TODO: should cache and make frozen.
-        dct = {k:getattr(self, k) for k in self._index}
+        dct = {k: getattr(self, k) for k in self._index}
         dct.update(self._userdict)
         return dct
 
@@ -155,14 +160,15 @@ class SourceEvent(object):
         return itertools.chain(self._userdict, self._index)
 
     def __repr__(self):
-        vals = {k:getattr(self, k) for k in self._index}
+        vals = {k: getattr(self, k) for k in self._index}
         vals.update(self._userdict)
         return "SourceEvent({0})".format(vals)
 
     def to_series(self, index=None):
         if index is None:
             index = self._index
-        return pd.Series(self._values, index=index) 
+        return pd.Series(self._values, index=index)
+
 
 class DataPanelSource(DataSource):
     """
@@ -216,8 +222,8 @@ class DataPanelSource(DataSource):
     def raw_data_gen(self):
         values = self.data.values
         major_axis = self.data.major_axis
-        minor_axis = dict(zip(self.data.minor_axis,
-                                     range(len(self.data.minor_axis))))
+        minor_axis = self.data.minor_axis
+        minor_axis = dict(zip(minor_axis, range(len(minor_axis))))
         items = self.data.items
 
         source_id = self.get_hash()
@@ -232,6 +238,7 @@ class DataPanelSource(DataSource):
                     yield SourceEvent(series, minor_axis, mapping,
                                       source_id=source_id, type=event_type,
                                       sid=sid, dt=dt)
+
     @property
     def mapped_data(self):
         for row in self.raw_data:
