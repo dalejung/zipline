@@ -18,6 +18,7 @@
 Tools to generate data sources.
 """
 import itertools
+from collections import OrderedDict
 
 import pandas as pd
 
@@ -223,7 +224,7 @@ class DataPanelSource(DataSource):
         values = self.data.values
         major_axis = self.data.major_axis
         minor_axis = self.data.minor_axis
-        minor_axis = dict(zip(minor_axis, range(len(minor_axis))))
+        minor_axis = OrderedDict(zip(minor_axis, range(len(minor_axis))))
         items = self.data.items
 
         source_id = self.get_hash()
