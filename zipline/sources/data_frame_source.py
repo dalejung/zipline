@@ -83,6 +83,86 @@ class DataFrameSource(DataSource):
             self._raw_data = self.raw_data_gen()
         return self._raw_data
 
+class SourceEvent(object):
+    # using slots to keep user variables separate
+    __slots__ = ['_values', '_index', '_mapping', '_userdict']
+
+    def __init__(self, values, index, mapping, **kwargs):
+        self._userdict = kwargs
+        self._values = values
+        self._index = index
+        self._mapping = mapping
+
+    def __getattr__(self, name):
+        try:
+            return self._userdict[name]
+        except KeyError:
+            pass
+
+        try:
+            # get source attr
+            i = self._index[name]
+        except KeyError:
+            raise AttributeError(name)
+
+        val = self._values[i]
+        mapper = self._mapping.get(name, None)
+        if mapper:
+            mapping_func, source_key = mapper
+            val = mapping_func(val)
+        return val
+
+    def __setattr__(self, name, value):
+        if name == '_userdict':
+            object.__setattr__(self, name, value)
+            return
+
+        if name in self.__slots__:
+            object.__setattr__(self, name, value)
+            return
+
+        # don't allow panel source attrs to change
+        if hasattr(self, '_index') and name in self._index:
+            raise Exception("{name}: Cannot change a source attr".format(name=name))
+        self._userdict[name] = value
+
+    def __delattr__(self, name):
+        if name in self._index:
+            raise Exception("{name}: Cannot delete a source attr".format(name=name))
+        del self._userdict[name]
+
+    def __contains__(self, name):
+        return hasattr(self, name)
+
+    def __getitem__(self, name):
+        return getattr(self, name)
+
+    def __setitem__(self, name, value):
+        setattr(self, name, value)
+
+    def __delitem__(self, name, value):
+        delattr(self, name, value)
+
+    @property
+    def __dict__(self):
+        # this replicate the old Event __dict__
+        # TODO: should cache and make frozen.
+        dct = {k:getattr(self, k) for k in self._index}
+        dct.update(self._userdict)
+        return dct
+
+    def keys(self):
+        return itertools.chain(self._userdict, self._index)
+
+    def __repr__(self):
+        vals = {k:getattr(self, k) for k in self._index}
+        vals.update(self._userdict)
+        return "SourceEvent({0})".format(vals)
+
+    def to_series(self, index=None):
+        if index is None:
+            index = self._index
+        return pd.Series(self._values, index=index) 
 
 class DataPanelSource(DataSource):
     """
@@ -134,18 +214,28 @@ class DataPanelSource(DataSource):
         return self.arg_string
 
     def raw_data_gen(self):
-        for dt in self.data.major_axis:
-            df = self.data.major_xs(dt)
-            for sid, series in df.iteritems():
-                if sid in self.sids:
-                    event = {
-                        'dt': dt,
-                        'sid': sid,
-                    }
-                    for field_name, value in series.iteritems():
-                        event[field_name] = value
+        values = self.data.values
+        major_axis = self.data.major_axis
+        minor_axis = dict(zip(self.data.minor_axis,
+                                     range(len(self.data.minor_axis))))
+        items = self.data.items
 
-                    yield event
+        source_id = self.get_hash()
+        event_type = self.event_type
+        mapping = self.mapping
+
+        for i, dt in enumerate(major_axis):
+            df = values[:, i, :]
+            for k, sid in enumerate(items):
+                if sid in self.sids:
+                    series = df[k]
+                    yield SourceEvent(series, minor_axis, mapping,
+                                      source_id=source_id, type=event_type,
+                                      sid=sid, dt=dt)
+    @property
+    def mapped_data(self):
+        for row in self.raw_data:
+            yield row
 
     @property
     def raw_data(self):
