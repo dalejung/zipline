@@ -153,9 +153,23 @@ class SourceEvent(object):
     def __dict__(self):
         # this replicate the old Event __dict__
         # TODO: should cache and make frozen.
-        dct = {k: getattr(self, k) for k in self._index}
-        dct.update(self._userdict)
-        return dct
+        return dict(self.items())
+
+    def _source_items(self):
+        # we dont care about ordering
+        items = dict.items(self._index)
+        vals = self._values
+        mapping = self._mapping
+        for name, i in items:
+            val = vals[i]
+            if name in mapping:
+                mapper = mapping[name]
+                # asssuming source_key is same as name
+                val = mapper[0](val)
+            yield name, val
+
+    def items(self):
+        return itertools.chain(self._source_items(), self._userdict.items())
 
     def keys(self):
         return itertools.chain(self._userdict, self._index)
