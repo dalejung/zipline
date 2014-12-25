@@ -216,18 +216,9 @@ class DataPanelSource(DataSource):
     @property
     def mapping(self):
         mapping = {
-            'dt': (lambda x: x, 'dt'),
-            'sid': (lambda x: x, 'sid'),
             'price': (float, 'price'),
             'volume': (int, 'volume'),
         }
-
-        # Add additional fields.
-        for field_name in self.data.minor_axis:
-            if field_name in ['price', 'volume', 'dt', 'sid']:
-                continue
-            mapping[field_name] = (lambda x: x, field_name)
-
         return mapping
 
     @property
