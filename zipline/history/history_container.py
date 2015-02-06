@@ -42,9 +42,44 @@ def _interpolate(values, method, axis=None):
         axis = 1
     else:
         raise Exception("Cannot interpolate array with more than 2 dims")
+
     values = values.copy()
-    values = com.interpolate_2d(values, method, axis=axis)
+    interpolate_2d(values, method, axis=axis)
     return values
+
+
+def interpolate_2d(values, method='pad', axis=0, limit=None, fill_value=None,
+                   dtype=None):
+    """
+    Copied from the 0.15.2. This did not exist in 0.12.0. Note, that while
+    pad_2d and backfill_2d return values, they still modify it in place.
+
+    0.12.0 did not have the return sematnics, so we only recognize that
+    the values are modified inplace.
+    """
+    transf = (lambda x: x) if axis == 0 else (lambda x: x.T)
+
+    # reshape a 1 dim if needed
+    ndim = values.ndim
+    if values.ndim == 1:
+        if axis != 0:  # pragma: no cover
+            raise AssertionError("cannot interpolate on a ndim == 1 with "
+                                 "axis != 0")
+        values = values.reshape(tuple((1,) + values.shape))
+
+    if fill_value is None:
+        mask = None
+    else:  # todo create faster fill func without masking
+        mask = com.mask_missing(transf(values), fill_value)
+
+    if method == 'pad':
+        com.pad_2d(transf(values), limit=limit, mask=mask, dtype=dtype)
+    else:
+        com.backfill_2d(transf(values), limit=limit, mask=mask, dtype=dtype)
+
+    # reshape back
+    if ndim == 1:
+        values = values[0]
 
 
 def ffill(values, axis=None):
