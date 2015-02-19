@@ -11,6 +11,7 @@ try:
 except ImportError:
     from collections import OrderedDict
 from six import iteritems
+from six.moves import map, filter
 
 import zipline.protocol as zp
 from . position import positiondict
