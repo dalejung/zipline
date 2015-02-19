@@ -2,7 +2,6 @@ from __future__ import division
 from operator import mul
 
 import logbook
-import numpy as np
 import pandas as pd
 from pandas.lib import checknull
 try:
