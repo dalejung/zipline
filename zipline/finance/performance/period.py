@@ -100,12 +100,14 @@ def position_proxy(func):
     return _proxied
 
 
-def proxy_error():
-    import inspect
+class ProxyError(Exception):
+    def __init__(self):
+        import inspect
 
-    meth_name = inspect.stack()[1][3]
-    msg = "{meth_name} should have been proxied to position_tracker."
-    return Exception(msg.format(meth_name=meth_name))
+        meth_name = inspect.stack()[1][3]
+        TEMPLATE = "{meth_name} should have been proxied to position_tracker."
+        msg = TEMPLATE.format(meth_name=meth_name)
+        super(ProxyError, self).__init__(msg)
 
 
 class PerformancePeriod(object):
@@ -220,31 +222,31 @@ class PerformancePeriod(object):
 
     @position_proxy
     def calculate_positions_value(self):
-        raise proxy_error()
+        raise ProxyError()
 
     @position_proxy
     def _longs_count(self):
-        raise proxy_error()
+        raise ProxyError()
 
     @position_proxy
     def _long_exposure(self):
-        raise proxy_error()
+        raise ProxyError()
 
     @position_proxy
     def _shorts_count(self):
-        raise proxy_error()
+        raise ProxyError()
 
     @position_proxy
     def _short_exposure(self):
-        raise proxy_error()
+        raise ProxyError()
 
     @position_proxy
     def _gross_exposure(self):
-        raise proxy_error()
+        raise ProxyError()
 
     @position_proxy
     def _net_exposure(self):
-        raise proxy_error()
+        raise ProxyError()
 
     @property
     def _net_liquidation_value(self):
@@ -399,8 +401,8 @@ class PerformancePeriod(object):
 
     @position_proxy
     def get_positions(self):
-        raise proxy_error()
+        raise ProxyError()
 
     @position_proxy
     def get_positions_list(self):
-        raise proxy_error()
+        raise ProxyError()
