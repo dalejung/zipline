@@ -137,6 +137,7 @@ class PositionTracker(object):
             self._position_amounts[split.sid] = position.amount
             self._position_last_sale_prices[split.sid] = \
                 position.last_sale_price
+            self._position_values = None  # invalidate cache
             return leftover_cash
 
     def _maybe_earn_dividend(self, dividend):
