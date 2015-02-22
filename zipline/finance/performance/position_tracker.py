@@ -23,7 +23,7 @@ class PositionTracker(object):
 
     def __init__(self):
         # sid => position object
-        self.positions = positiondict(self)
+        self.positions = positiondict()
         # Arrays for quick calculations of positions value
         self._position_amounts = OrderedDict()
         self._position_last_sale_prices = OrderedDict()
