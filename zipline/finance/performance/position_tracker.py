@@ -25,8 +25,8 @@ class PositionTracker(object):
         # sid => position object
         self.positions = positiondict(self)
         # Arrays for quick calculations of positions value
-        self.position_amounts = OrderedDict()
-        self.position_last_sale_prices = OrderedDict()
+        self._position_amounts = OrderedDict()
+        self._position_last_sale_prices = OrderedDict()
         self._unpaid_dividends = pd.DataFrame(
             columns=zp.DIVIDEND_PAYMENT_FIELDS,
         )
@@ -54,11 +54,11 @@ class PositionTracker(object):
 
         if amount is not None:
             pos.amount = amount
-            self.position_amounts[sid] = amount
+            self._position_amounts[sid] = amount
             self._position_values = None  # invalidate cache
         if last_sale_price is not None:
             pos.last_sale_price = last_sale_price
-            self.position_last_sale_prices[sid] = last_sale_price
+            self._position_last_sale_prices[sid] = last_sale_price
             self._position_values = None  # invalidate cache
         if last_sale_date is not None:
             pos.last_sale_date = last_sale_date
@@ -72,8 +72,8 @@ class PositionTracker(object):
         sid = txn.sid
         position = self.positions[sid]
         position.update(txn)
-        self.position_amounts[sid] = position.amount
-        self.position_last_sale_prices[sid] = position.last_sale_price
+        self._position_amounts[sid] = position.amount
+        self._position_last_sale_prices[sid] = position.last_sale_price
         self._position_values = None  # invalidate cache
 
     def handle_commission(self, commission):
@@ -87,12 +87,12 @@ class PositionTracker(object):
     @property
     def position_values(self):
         """
-        Invalidate any time self.position_amounts or
-        self.position_last_sale_prices is changed.
+        Invalidate any time self._position_amounts or
+        self._position_last_sale_prices is changed.
         """
         if self._position_values is None:
-            vals = list(map(mul, self.position_amounts.values(),
-                        self.position_last_sale_prices.values()))
+            vals = list(map(mul, self._position_amounts.values(),
+                        self._position_last_sale_prices.values()))
             self._position_values = vals
         return self._position_values
 
@@ -126,8 +126,8 @@ class PositionTracker(object):
             # leftover cash from a fractional share, if there is any.
             position = self.positions[split.sid]
             leftover_cash = position.handle_split(split)
-            self.position_amounts[split.sid] = position.amount
-            self.position_last_sale_prices[split.sid] = \
+            self._position_amounts[split.sid] = position.amount
+            self._position_last_sale_prices[split.sid] = \
                 position.last_sale_price
             return leftover_cash
 
@@ -193,8 +193,8 @@ class PositionTracker(object):
             position = self.positions[stock]
 
             position.amount += share_count
-            self.position_amounts[stock] = position.amount
-            self.position_last_sale_prices[stock] = position.last_sale_price
+            self._position_amounts[stock] = position.amount
+            self._position_last_sale_prices[stock] = position.last_sale_price
 
         # Add cash equal to the net cash payed from all dividends.  Note that
         # "negative cash" is effectively paid if we're short a security,
