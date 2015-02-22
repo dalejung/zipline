@@ -225,6 +225,10 @@ class PerformancePeriod(object):
         raise ProxyError()
 
     @position_proxy
+    def set_positions(self):
+        raise ProxyError()
+
+    @position_proxy
     def _longs_count(self):
         raise ProxyError()
 

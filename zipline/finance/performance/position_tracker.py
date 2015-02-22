@@ -48,6 +48,14 @@ class PositionTracker(object):
         sid = event.sid
         price = event.price
 
+    def set_positions(self, positions):
+        self.positions = positions
+        for sid, pos in positions.iteritems():
+            self._position_amounts[sid] = pos.amount
+            self._position_last_sale_prices[sid] = pos.last_sale_price
+            # Invalidate cache.
+            self._position_values = None  # invalidate cache
+
     def update_position(self, sid, amount=None, last_sale_price=None,
                         last_sale_date=None, cost_basis=None):
         pos = self.positions[sid]
