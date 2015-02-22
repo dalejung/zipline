@@ -35,21 +35,22 @@ class PositionTracker(object):
     def update_last_sale(self, event):
         # NOTE, PerformanceTracker already vetted as TRADE type
         sid = event.sid
-        price = event.price
+        if sid not in self.positions:
+            return
 
-        try:
+        price = event.price
+        if not checknull(price):
             pos = self.positions[sid]
-            if not checknull(price):
-                pos.last_sale_date = event.dt
-                pos.last_sale_price = price
-                self.position_last_sale_prices[sid] = price
-                self._position_values = None  # invalidate cache
-        except KeyError:
-            pass  # dont have position
+            pos.last_sale_date = event.dt
+            pos.last_sale_price = price
+            self._position_last_sale_prices[sid] = price
+            self._position_values = None  # invalidate cache
+        sid = event.sid
+        price = event.price
 
     def update_position(self, sid, amount=None, last_sale_price=None,
                         last_sale_date=None, cost_basis=None):
-        pos = self.positions.get_default(sid)
+        pos = self.positions[sid]
 
         if amount is not None:
             pos.amount = amount
@@ -69,7 +70,7 @@ class PositionTracker(object):
         # ----------------
 
         sid = txn.sid
-        position = self.positions.get_default(sid)
+        position = self.positions[sid]
         position.update(txn)
         self.position_amounts[sid] = position.amount
         self.position_last_sale_prices[sid] = position.last_sale_price
@@ -189,7 +190,7 @@ class PositionTracker(object):
             share_count = row['share_count']
             # note we create a Position for stock dividend if we don't
             # already own the security
-            position = self.positions.get_default(stock)
+            position = self.positions[stock]
 
             position.amount += share_count
             self.position_amounts[stock] = position.amount
