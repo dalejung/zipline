@@ -17,7 +17,6 @@ from pandas.tslib import normalize_date
 
 from zipline.finance import trading
 from zipline.protocol import (
-    BarData,
     DATASOURCE_TYPE
 )
 from zipline.gens.utils import hash_args
@@ -57,10 +56,12 @@ class AlgorithmSimulator(object):
         # Snapshot Setup
         # ==============
 
+        self.dataverse = algo.dataverse
+        self.update_universe = self.dataverse.update_universe
         # The algorithm's data as of our most recent event.
         # We want an object that will have empty objects as default
         # values on missing keys.
-        self.current_data = BarData()
+        self.current_data = self.dataverse.get_bar_data()
 
         # We don't have a datetime for the current snapshot until we
         # receive a message.
@@ -280,6 +281,7 @@ class AlgorithmSimulator(object):
         self.algo.before_trading_start()
 
     def on_dt_changed(self, dt):
+        self.dataverse.on_dt_changed(dt)
         if self.algo.datetime != dt:
             self.algo.on_dt_changed(dt)
 
@@ -305,10 +307,3 @@ class AlgorithmSimulator(object):
             perf_message = self.algo.perf_tracker.to_dict()
             perf_message['minute_perf']['recorded_vars'] = rvars
             return perf_message
-
-    def update_universe(self, event):
-        """
-        Update the universe with new event information.
-        """
-        # Off loading handling to BarData class
-        self.current_data.update_sid(event)
