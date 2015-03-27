@@ -71,3 +71,34 @@ class BacktestDataverse(BaseDataverse):
 
     def get_sid_data(self, sid, name):
         pass
+
+
+class DataverseChunk(object):
+    """
+    """
+    def __init__(self, values, index, window, ffill=True, last_values=None):
+        self.values = values
+        self.index = index
+        self.ffill = ffill
+        self.last_values = last_values
+
+    def __iter__(self):
+        """
+        Coroutine to generate ndarray slices.
+        """
+        values = self.values
+        index = self.index
+        get_loc = index.get_loc
+
+        if self.ffill:
+            values = ffill(values)
+
+        vals = None
+        while True:
+            dt = (yield vals)
+            # TODO walk a starting loc_index to limit search space.
+            # in most cases the next loc will be right after the last one
+            loc = get_loc(dt)
+            start = max(loc - window, 0)
+            sl = slice(start, loc)
+            vals = values[sl]
