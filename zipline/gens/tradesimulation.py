@@ -58,6 +58,9 @@ class AlgorithmSimulator(object):
 
         self.dataverse = algo.dataverse
         self.update_universe = self.dataverse.update_universe
+        self.update_universe_trade = getattr(self.dataverse,
+                                             'update_universe_trade',
+                                             self.update_universe)
         # The algorithm's data as of our most recent event.
         # We want an object that will have empty objects as default
         # values on missing keys.
@@ -220,7 +223,7 @@ class AlgorithmSimulator(object):
         for event in snapshot:
 
             if event.type == DATASOURCE_TYPE.TRADE:
-                self.update_universe(event)
+                self.update_universe_trade(event)
                 any_trade_occurred = True
 
             elif event.type == DATASOURCE_TYPE.BENCHMARK:
