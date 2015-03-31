@@ -2,11 +2,13 @@ import pandas as pd
 
 from .dataverse import BaseDataverse
 from . import backtest
+from . import widebar
 
 BacktestDataverse = backtest.BacktestDataverse
 HistoryDataverse = backtest.HistoryDataverse
+WidebarDataverse = widebar.WidebarDataverse
 
-CurrentBacktestDataverse = HistoryDataverse
+CurrentBacktestDataverse = WidebarDataverse
 
 
 class ProxyDataverse(object):
