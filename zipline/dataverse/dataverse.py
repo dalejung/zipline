@@ -29,9 +29,12 @@ class BaseDataverse(object):
     history_container_class = HistoryContainer
 
     def __init__(self):
-        self.current_data = self.bardata_class(dataverse=self)
+        self.dt = None
 
     def get_bar_data(self):
+        self.current_data = self.bardata_class(
+            dataverse=self,
+            siddata_class=self.siddata_class)
         return self.current_data
 
     def get_history_container(self, *args, **kwargs):
@@ -58,4 +61,4 @@ class BaseDataverse(object):
         pass
 
     def on_dt_changed(self, dt):
-        pass
+        self.dt = dt
