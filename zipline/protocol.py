@@ -357,10 +357,11 @@ class SIDData(object):
     # This maps days to number of minutes.
     _minute_bar_cache = {}
 
-    def __init__(self, sid, initial_values=None):
+    def __init__(self, sid, initial_values=None, **kwargs):
         self._sid = sid
 
         self._freqstr = None
+        self._dataverse = kwargs.pop('dataverse')
 
         # To check if we have data, we use the __len__ which depends on the
         # __dict__. Because we are foward defining the attributes needed, we
@@ -563,17 +564,32 @@ class BarData(object):
     def __init__(self, data=None, siddata_class=SIDData, dataverse=None):
         self._dataverse = dataverse
         self._data = data or {}
-        self._contains_override = None
         self._siddata_class = siddata_class
 
+    _contains_override_ = None
+
+    @property
+    def _contains_override(self):
+        return self._contains_override_
+
+    @_contains_override.setter
+    def _contains_override(self, value):
+        self._contains_override_ = value
+        self._keys_cache_ = None
+
+    _keys_cache_ = None
+
+    @property
+    def _keys_cache(self):
+        if self._keys_cache_ is None:
+            keys = self._data.keys()
+            if self._contains_override:
+                keys = list(filter(self._contains_override, keys))
+            self._keys_cache_ = keys
+        return self._keys_cache_
+
     def __contains__(self, name):
-        if self._contains_override:
-            if self._contains_override(name):
-                return name in self._data
-            else:
-                return False
-        else:
-            return name in self._data
+        return name in self._keys_cache
 
     def has_key(self, name):
         """
@@ -584,22 +600,23 @@ class BarData(object):
 
     def get_default(self, name):
         try:
-            sid_data = self[name]
+            return self[name]
         except KeyError:
-            sid_data = self[name] = self._siddata_class(name)
-        return sid_data
+            self[name] = self._siddata_class(name, dataverse=self._dataverse)
+            return self[name]
+
+    def populate_sids(self, sids_set, sid_translate={}):
+        # prepopulate BarData with missing SIDData
+        for sid in sids_set.difference(self._data):
+            sid = sid_translate.get(sid, sid)
+            self.get_default(sid)
 
     def update_sid(self, event):
         if event.is_wide:
-            sids_set = event.sids_set
             # until https://github.com/quantopian/zipline/issues/537
             # gets resolved, using sid_translate dict
             sid_translate = getattr(event, 'sid_translate', {})
-            # prepopulate BarData with missing SIDData
-            for sid in sids_set.difference(self._data):
-                sid = sid_translate.get(sid, sid)
-                self.get_default(sid)
-
+            self.populate_sids(event.sids_set, sid_translate)
             lib.update_sid(self._data, np.asarray(event.columns),
                            np.asarray(event.sids), event.values, event.dt,
                            sid_translate)
@@ -609,38 +626,43 @@ class BarData(object):
 
     def __setitem__(self, name, value):
         self._data[name] = value
+        self._keys_cache_ = None
 
     def __getitem__(self, name):
         return self._data[name]
 
     def __delitem__(self, name):
         del self._data[name]
+        self._keys_cache_ = None
 
     def __iter__(self):
+        keys_cache = self._keys_cache
         for sid, data in iteritems(self._data):
             # Allow contains override to filter out sids.
-            if sid in self:
+            if sid in keys_cache:
                 if len(data):
                     yield sid
-
-    def iterkeys(self):
-        # Allow contains override to filter out sids.
-        return (sid for sid in iterkeys(self._data) if sid in self)
 
     def keys(self):
         # Allow contains override to filter out sids.
         return list(self.iterkeys())
 
-    def itervalues(self):
-        return (value for _sid, value in self.iteritems())
+    def iterkeys(self):
+        # Allow contains override to filter out sids.
+        keys_cache = self._keys_cache
+        return (sid for sid in iterkeys(self._data) if sid in keys_cache)
 
     def values(self):
         return list(self.itervalues())
 
+    def itervalues(self):
+        return (value for _sid, value in self.iteritems())
+
     def iteritems(self):
+        keys_cache = self._keys_cache
         return ((sid, value) for sid, value
                 in iteritems(self._data)
-                if sid in self)
+                if sid in keys_cache)
 
     def items(self):
         return list(self.iteritems())
