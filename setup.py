@@ -29,6 +29,11 @@ ext_modules = [
         ['zipline/lib.pyx'],
         include_dirs=[np.get_include()],
     ),
+    Extension(
+        'zipline.dataverse._dataverse',
+        ['zipline/dataverse/_dataverse.pyx'],
+        include_dirs=[np.get_include()],
+    ),
 ]
 
 setup(
