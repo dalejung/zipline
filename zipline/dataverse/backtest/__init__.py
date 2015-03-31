@@ -3,6 +3,8 @@ from zipline.dataverse.dataverse import BaseDataverse
 from .history import BacktestHistoryContainer
 from .bardata import BacktestBarData, BacktestSIDData
 
+from zipline.utils.munge import ffill
+
 
 class HistoryDataverse(BaseDataverse):
     """
@@ -99,6 +101,6 @@ class DataverseChunk(object):
             # TODO walk a starting loc_index to limit search space.
             # in most cases the next loc will be right after the last one
             loc = get_loc(dt)
-            start = max(loc - window, 0)
+            start = max(loc - self.window, 0)
             sl = slice(start, loc)
             vals = values[sl]
